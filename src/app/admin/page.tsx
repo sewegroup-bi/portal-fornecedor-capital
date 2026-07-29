@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "../login/actions";
 import ImportarButton from "./importar-button";
-import GerarSaidaDrive from "./gerar-saida-drive";
+import GerarSaida from "./gerar-saida";
 
 const dataHora = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", {
@@ -82,8 +82,9 @@ export default async function AdminPage() {
       <div className="card">
         <h1 style={{ fontSize: 18 }}>Saída de dados (BI)</h1>
         <p className="muted">
-          Dataset pronto para o BI (grão de item de pedido). Baixe em CSV ou conecte
-          o Qlik direto na view <code>saida_pedidos</code>.
+          Dataset pronto para o BI (grão de item de pedido). Baixe em CSV, gere o
+          arquivo no Storage (para o Full Screen/BI puxar depois) ou conecte o Qlik
+          direto na view <code>saida_pedidos</code>.
         </p>
         <div className="between" style={{ margin: "12px 0" }}>
           <span className="muted">Pedidos registrados</span>
@@ -91,7 +92,7 @@ export default async function AdminPage() {
             <strong>{totalPedidos ?? 0}</strong>
           </span>
         </div>
-        <GerarSaidaDrive />
+        <GerarSaida />
       </div>
 
       <div className="card">

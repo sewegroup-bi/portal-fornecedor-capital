@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-type Res = { ok?: boolean; erro?: string; arquivo?: string; link?: string };
+type Res = { ok?: boolean; erro?: string; arquivo?: string; url?: string };
 
-export default function GerarSaidaDrive() {
+export default function GerarSaida() {
   const [carregando, setCarregando] = useState(false);
   const [res, setRes] = useState<Res | null>(null);
 
@@ -28,17 +28,17 @@ export default function GerarSaidaDrive() {
           <button className="secondary">Baixar saída (CSV)</button>
         </a>
         <button onClick={gerar} disabled={carregando}>
-          {carregando ? "Gerando…" : "Gerar na pasta SAÍDA do Drive"}
+          {carregando ? "Gerando…" : "Gerar arquivo de saída"}
         </button>
       </div>
       {res && (
         <p style={{ marginTop: 12 }} className={res.ok ? undefined : "error"}>
           {res.ok ? (
             <>
-              ✅ Arquivo <strong>{res.arquivo}</strong> gravado na pasta SAÍDA.{" "}
-              {res.link && (
-                <a href={res.link} target="_blank" rel="noopener noreferrer">
-                  abrir no Drive
+              ✅ Arquivo <strong>{res.arquivo}</strong> gerado no Storage.{" "}
+              {res.url && (
+                <a href={res.url} target="_blank" rel="noopener noreferrer">
+                  abrir / link do arquivo
                 </a>
               )}
             </>
