@@ -58,7 +58,8 @@ export async function GET() {
   const linhas = (data ?? []).map((r) =>
     colunas.map((c) => csvCell((r as Record<string, unknown>)[c])).join(",")
   );
-  const csv = [colunas.join(","), ...linhas].join("\n");
+  // BOM UTF-8 para o Excel (Windows) exibir acentos corretamente
+  const csv = "﻿" + [colunas.join(","), ...linhas].join("\n");
 
   return new NextResponse(csv, {
     status: 200,
