@@ -11,6 +11,9 @@ type Resultado = {
   linhas_ok?: number;
   linhas_erro?: number;
   fornecedores_afetados?: number;
+  detalhe?: {
+    documentos?: { CNPJ: number; CPF: number; INVALIDO: number };
+  };
 };
 
 export default function ImportarButton() {
@@ -53,11 +56,22 @@ export default function ImportarButton() {
       {res && (
         <div style={{ marginTop: 16 }}>
           {res.ok ? (
-            <p>
-              ✅ Importado: <strong>{res.gravados}</strong> produtos ·{" "}
-              {res.fornecedores_afetados} fornecedores · {res.linhas_erro} linha(s)
-              com erro (de {res.linhas_total} no arquivo).
-            </p>
+            <div>
+              <p>
+                ✅ Importado: <strong>{res.gravados}</strong> produtos ·{" "}
+                {res.fornecedores_afetados} fornecedores · {res.linhas_erro} linha(s)
+                com erro (de {res.linhas_total} no arquivo).
+              </p>
+              {res.detalhe?.documentos && (
+                <p className="muted" style={{ fontSize: 13 }}>
+                  Documentos dos fornecedores: {res.detalhe.documentos.CNPJ} CNPJ ·{" "}
+                  {res.detalhe.documentos.CPF} CPF ·{" "}
+                  <strong style={{ color: res.detalhe.documentos.INVALIDO > 0 ? "#ff8787" : undefined }}>
+                    {res.detalhe.documentos.INVALIDO} a corrigir
+                  </strong>
+                </p>
+              )}
+            </div>
           ) : (
             <p className="error">❌ {res.erro}</p>
           )}

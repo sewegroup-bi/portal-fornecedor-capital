@@ -20,7 +20,7 @@ export default async function PedidosPage() {
   // RLS garante que cada consulta já vem filtrada pelo fornecedor logado.
   const [{ data: fornecedor }, { data: produtos }, { data: pedidos }] =
     await Promise.all([
-      supabase.from("fornecedores").select("nome, cnpj").maybeSingle(),
+      supabase.from("fornecedores").select("nome, cnpj, documento").maybeSingle(),
       supabase
         .from("produtos")
         .select("id, codigo_fornecedor, nome, custo")
@@ -38,7 +38,7 @@ export default async function PedidosPage() {
           <h1>Portal do Fornecedor</h1>
           <p className="muted">
             {fornecedor
-              ? `${fornecedor.nome} — ${fornecedor.cnpj}`
+              ? `${fornecedor.nome} — ${fornecedor.documento ?? fornecedor.cnpj ?? "sem documento"}`
               : "Fornecedor não vinculado a este usuário"}
           </p>
         </div>

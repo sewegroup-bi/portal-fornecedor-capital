@@ -1,7 +1,9 @@
 import { parse } from "csv-parse/sync";
 
+export type DocumentoTipo = "CNPJ" | "CPF" | "INVALIDO";
+
 export type ProdutoImport = {
-  cnpj: string; // digits-only, 14
+  codigo_fabricante: string; // chave do fornecedor
   codigo_fornecedor: string; // = codigo_produto (ex.: 28906)
   codigo_produto_ref: string | null; // código embutido em "produto" (ex.: 0170076237)
   nome: string; // descrição após separar o código
@@ -11,15 +13,17 @@ export type ProdutoImport = {
 };
 
 export type FornecedorImport = {
-  cnpj: string;
+  codigo_fabricante: string;
   nome: string;
-  codigo_fabricante: string | null;
+  documento: string | null; // valor cru do cgc_fabricante
+  documento_tipo: DocumentoTipo;
+  cnpj: string | null; // dígitos, só quando documento_tipo = CNPJ (compatibilidade/exibição)
 };
 
 export type LinhaErro = { linha: number; motivo: string; dados: string };
 
 export type ParseResult = {
-  fornecedores: Map<string, FornecedorImport>; // key = cnpj
+  fornecedores: Map<string, FornecedorImport>; // key = codigo_fabricante
   produtos: ProdutoImport[];
   erros: LinhaErro[];
   total: number;
@@ -34,18 +38,22 @@ function parseCustoBR(v: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// só dígitos; válido se tiver 14
-function normalizeCnpj(v: string): string {
+function onlyDigits(v: string): string {
   return String(v ?? "").replace(/\D/g, "");
 }
 
-// "0170076237 - CALCINHA PIETRA LISA M VERMELHO" -> ["0170076237", "CALCINHA ..."]
+function classificarDocumento(cgc: string): { tipo: DocumentoTipo; cnpj: string | null } {
+  const d = onlyDigits(cgc);
+  if (d.length === 14) return { tipo: "CNPJ", cnpj: d };
+  if (d.length === 11) return { tipo: "CPF", cnpj: null };
+  return { tipo: "INVALIDO", cnpj: null };
+}
+
+// "0170076237 - CALCINHA PIETRA LISA M VERMELHO" -> { ref: "0170076237", nome: "CALCINHA ..." }
 function splitProduto(v: string): { ref: string | null; nome: string } {
   const s = String(v ?? "").trim();
   const idx = s.indexOf(" - ");
-  if (idx > 0) {
-    return { ref: s.slice(0, idx).trim(), nome: s.slice(idx + 3).trim() };
-  }
+  if (idx > 0) return { ref: s.slice(0, idx).trim(), nome: s.slice(idx + 3).trim() };
   return { ref: null, nome: s };
 }
 
@@ -64,17 +72,18 @@ export function parseFornecedoresCsv(csv: string): ParseResult {
 
   records.forEach((r, i) => {
     const linha = i + 2; // +1 header, +1 base-1
-    const cnpj = normalizeCnpj(r["cgc_fabricante"]);
-    const codigo = String(r["codigo_produto"] ?? "").trim();
+    const codigoFab = String(r["codigo_fabricante"] ?? "").trim();
+    const codigoProd = String(r["codigo_produto"] ?? "").trim();
     const custo = parseCustoBR(r["custo"]);
 
-    const resumo = `${r["cgc_fabricante"] ?? ""} | ${r["produto"] ?? ""} | ${r["custo"] ?? ""}`;
+    const resumo = `fab:${r["codigo_fabricante"] ?? ""} | ${r["produto"] ?? ""} | ${r["custo"] ?? ""}`;
 
-    if (cnpj.length !== 14) {
-      erros.push({ linha, motivo: "CNPJ inválido", dados: resumo });
+    // agora só bloqueia o que realmente inviabiliza o produto (não o CNPJ)
+    if (!codigoFab) {
+      erros.push({ linha, motivo: "codigo_fabricante vazio", dados: resumo });
       return;
     }
-    if (!codigo) {
+    if (!codigoProd) {
       erros.push({ linha, motivo: "codigo_produto vazio", dados: resumo });
       return;
     }
@@ -83,18 +92,22 @@ export function parseFornecedoresCsv(csv: string): ParseResult {
       return;
     }
 
-    if (!fornecedores.has(cnpj)) {
-      fornecedores.set(cnpj, {
+    if (!fornecedores.has(codigoFab)) {
+      const cgc = String(r["cgc_fabricante"] ?? "");
+      const { tipo, cnpj } = classificarDocumento(cgc);
+      fornecedores.set(codigoFab, {
+        codigo_fabricante: codigoFab,
+        nome: String(r["nome_fabricante"] ?? "").trim() || codigoFab,
+        documento: cgc.trim() || null,
+        documento_tipo: tipo,
         cnpj,
-        nome: String(r["nome_fabricante"] ?? "").trim() || cnpj,
-        codigo_fabricante: String(r["codigo_fabricante"] ?? "").trim() || null,
       });
     }
 
     const { ref, nome } = splitProduto(r["produto"]);
     produtos.push({
-      cnpj,
-      codigo_fornecedor: codigo,
+      codigo_fabricante: codigoFab,
+      codigo_fornecedor: codigoProd,
       codigo_produto_ref: ref,
       nome,
       ean: String(r["codigo_produto_fabricante"] ?? "").trim() || null,
