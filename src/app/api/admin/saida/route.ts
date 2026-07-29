@@ -58,6 +58,9 @@ export async function POST() {
     return NextResponse.json({ ok: true, arquivo: file?.name, link: file?.webViewLink });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erro desconhecido";
-    return NextResponse.json({ erro: msg }, { status: 500 });
+    return NextResponse.json(
+      { erro: `${msg} (pasta usada: ${folderId})` },
+      { status: 500 }
+    );
   }
 }
