@@ -109,7 +109,12 @@ export async function POST(req: NextRequest) {
     };
     await db.from("importacoes").insert({ executado_por: user.id, ...resumo });
 
-    return NextResponse.json({ ok: true, gravados, ...resumo });
+    return NextResponse.json({
+      ok: true,
+      gravados,
+      total_validos: parsed.produtos.length, // total de produtos válidos no arquivo (para paginar)
+      ...resumo,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erro desconhecido";
     return NextResponse.json({ erro: msg }, { status: 500 });
