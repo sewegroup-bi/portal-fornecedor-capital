@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "../login/actions";
 import ImportarButton from "./importar-button";
+import GerarSaidaDrive from "./gerar-saida-drive";
 
 const dataHora = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", {
@@ -90,9 +91,7 @@ export default async function AdminPage() {
             <strong>{totalPedidos ?? 0}</strong>
           </span>
         </div>
-        <a href="/api/admin/saida">
-          <button>Baixar saída (CSV)</button>
-        </a>
+        <GerarSaidaDrive />
       </div>
 
       <div className="card">
