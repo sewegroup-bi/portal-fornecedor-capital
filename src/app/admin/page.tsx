@@ -28,16 +28,21 @@ export default async function AdminPage() {
     );
   }
 
-  const [{ count: totalProdutos }, { count: totalFornecedores }, { data: imports }] =
-    await Promise.all([
-      supabase.from("produtos").select("*", { count: "exact", head: true }),
-      supabase.from("fornecedores").select("*", { count: "exact", head: true }),
-      supabase
-        .from("importacoes")
-        .select("executado_em, fonte, linhas_ok, linhas_erro, fornecedores_afetados")
-        .order("executado_em", { ascending: false })
-        .limit(10),
-    ]);
+  const [
+    { count: totalProdutos },
+    { count: totalFornecedores },
+    { count: totalPedidos },
+    { data: imports },
+  ] = await Promise.all([
+    supabase.from("produtos").select("*", { count: "exact", head: true }),
+    supabase.from("fornecedores").select("*", { count: "exact", head: true }),
+    supabase.from("pedidos").select("*", { count: "exact", head: true }),
+    supabase
+      .from("importacoes")
+      .select("executado_em, fonte, linhas_ok, linhas_erro, fornecedores_afetados")
+      .order("executado_em", { ascending: false })
+      .limit(10),
+  ]);
 
   return (
     <div className="container">
@@ -71,6 +76,23 @@ export default async function AdminPage() {
           <em>Importar tudo</em>.
         </p>
         <ImportarButton />
+      </div>
+
+      <div className="card">
+        <h1 style={{ fontSize: 18 }}>Saída de dados (BI)</h1>
+        <p className="muted">
+          Dataset pronto para o BI (grão de item de pedido). Baixe em CSV ou conecte
+          o Qlik direto na view <code>saida_pedidos</code>.
+        </p>
+        <div className="between" style={{ margin: "12px 0" }}>
+          <span className="muted">Pedidos registrados</span>
+          <span>
+            <strong>{totalPedidos ?? 0}</strong>
+          </span>
+        </div>
+        <a href="/api/admin/saida">
+          <button>Baixar saída (CSV)</button>
+        </a>
       </div>
 
       <div className="card">
