@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { criarPedido } from "./actions";
@@ -36,41 +36,37 @@ export default function NovoPedidoForm() {
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
-  // debounce da busca
+  // debounce curto da busca
   useEffect(() => {
     const t = setTimeout(() => {
       setBuscaAtiva(busca.trim());
       setPage(0);
-    }, 350);
+    }, 200);
     return () => clearTimeout(t);
   }, [busca]);
 
-  const carregar = useCallback(async () => {
-    setCarregando(true);
-    let q = supabase
-      .from("produtos")
-      .select("id, codigo_fornecedor, nome, custo")
-      .order("codigo_fornecedor");
-
-    const b = buscaAtiva.replace(/[,()]/g, " ").trim();
-    if (b) {
-      q = q.or(
-        `nome.ilike.%${b}%,codigo_fornecedor.ilike.%${b}%,codigo_produto_ref.ilike.%${b}%`
-      );
-    }
-
-    const from = page * PAGE_SIZE;
-    const { data, error } = await q.range(from, from + PAGE_SIZE); // pega 1 a mais p/ saber se há próxima
-    if (!error && data) {
-      setTemMais(data.length > PAGE_SIZE);
-      setProdutos(data.slice(0, PAGE_SIZE) as Produto[]);
-    }
-    setCarregando(false);
-  }, [supabase, buscaAtiva, page]);
-
   useEffect(() => {
-    carregar();
-  }, [carregar]);
+    let cancelado = false; // descarta resposta de busca antiga (evita "piscar" resultado errado)
+    setCarregando(true);
+
+    (async () => {
+      const { data, error } = await supabase.rpc("buscar_produtos", {
+        p_termo: buscaAtiva,
+        p_offset: page * PAGE_SIZE,
+        p_limit: PAGE_SIZE + 1, // 1 a mais só para saber se existe próxima página
+      });
+      if (cancelado) return;
+      if (!error && data) {
+        setTemMais(data.length > PAGE_SIZE);
+        setProdutos(data.slice(0, PAGE_SIZE) as Produto[]);
+      }
+      setCarregando(false);
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [supabase, buscaAtiva, page]);
 
   function setQtd(produto: Produto, valor: number) {
     setSelecionados((prev) => {
@@ -120,8 +116,10 @@ export default function NovoPedidoForm() {
       <div className="between" style={{ marginBottom: 8 }}>
         <span className="muted" style={{ fontSize: 13 }}>
           {carregando
-            ? "Carregando…"
-            : `Página ${page + 1}${buscaAtiva ? ` · busca: "${buscaAtiva}"` : ""}`}
+            ? "Buscando…"
+            : `${produtos.length} produto(s) · página ${page + 1}${
+                buscaAtiva ? ` · contendo "${buscaAtiva}"` : ""
+              }`}
         </span>
         <span className="muted" style={{ fontSize: 13 }}>
           {itens.length > 0 && (
