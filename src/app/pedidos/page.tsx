@@ -18,18 +18,13 @@ export default async function PedidosPage() {
   const supabase = await createClient();
 
   // RLS garante que cada consulta já vem filtrada pelo fornecedor logado.
-  const [{ data: fornecedor }, { data: produtos }, { data: pedidos }] =
-    await Promise.all([
-      supabase.from("fornecedores").select("nome, cnpj, documento").maybeSingle(),
-      supabase
-        .from("produtos")
-        .select("id, codigo_fornecedor, nome, custo")
-        .order("codigo_fornecedor"),
-      supabase
-        .from("pedidos")
-        .select("id, data_registro, observacao, total, ciente_valores")
-        .order("data_registro", { ascending: false }),
-    ]);
+  const [{ data: fornecedor }, { data: pedidos }] = await Promise.all([
+    supabase.from("fornecedores").select("nome, cnpj, documento").maybeSingle(),
+    supabase
+      .from("pedidos")
+      .select("id, data_registro, observacao, total, ciente_valores")
+      .order("data_registro", { ascending: false }),
+  ]);
 
   return (
     <div className="container">
@@ -55,7 +50,7 @@ export default async function PedidosPage() {
           Selecione os produtos e as quantidades. O custo é definido pela Capital
           e não pode ser alterado aqui.
         </p>
-        <NovoPedidoForm produtos={produtos ?? []} />
+        <NovoPedidoForm />
       </div>
 
       <div className="card">

@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { criarPedido } from "./actions";
 
 type Produto = {
@@ -11,31 +12,77 @@ type Produto = {
   custo: number;
 };
 
+const PAGE_SIZE = 50;
 const brl = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export default function NovoPedidoForm({ produtos }: { produtos: Produto[] }) {
+export default function NovoPedidoForm() {
   const router = useRouter();
-  // quantidades por produto_id
-  const [qtd, setQtd] = useState<Record<string, number>>({});
+  const supabase = useMemo(() => createClient(), []);
+
+  const [busca, setBusca] = useState("");
+  const [buscaAtiva, setBuscaAtiva] = useState(""); // com debounce
+  const [page, setPage] = useState(0);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [temMais, setTemMais] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+
+  // seleção do "carrinho" — sobrevive a busca/paginação
+  const [selecionados, setSelecionados] = useState<
+    Record<string, { produto: Produto; quantidade: number }>
+  >({});
   const [observacao, setObservacao] = useState("");
   const [ciente, setCiente] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
-  const itens = useMemo(
-    () =>
-      produtos
-        .map((p) => ({ produto: p, quantidade: qtd[p.id] ?? 0 }))
-        .filter((i) => i.quantidade > 0),
-    [produtos, qtd]
-  );
+  // debounce da busca
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setBuscaAtiva(busca.trim());
+      setPage(0);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [busca]);
 
-  const total = useMemo(
-    () => itens.reduce((s, i) => s + i.produto.custo * i.quantidade, 0),
-    [itens]
-  );
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    let q = supabase
+      .from("produtos")
+      .select("id, codigo_fornecedor, nome, custo")
+      .order("codigo_fornecedor");
 
+    const b = buscaAtiva.replace(/[,()]/g, " ").trim();
+    if (b) {
+      q = q.or(
+        `nome.ilike.%${b}%,codigo_fornecedor.ilike.%${b}%,codigo_produto_ref.ilike.%${b}%`
+      );
+    }
+
+    const from = page * PAGE_SIZE;
+    const { data, error } = await q.range(from, from + PAGE_SIZE); // pega 1 a mais p/ saber se há próxima
+    if (!error && data) {
+      setTemMais(data.length > PAGE_SIZE);
+      setProdutos(data.slice(0, PAGE_SIZE) as Produto[]);
+    }
+    setCarregando(false);
+  }, [supabase, buscaAtiva, page]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  function setQtd(produto: Produto, valor: number) {
+    setSelecionados((prev) => {
+      const n = { ...prev };
+      if (!valor || valor <= 0) delete n[produto.id];
+      else n[produto.id] = { produto, quantidade: valor };
+      return n;
+    });
+  }
+
+  const itens = Object.values(selecionados);
+  const total = itens.reduce((s, i) => s + i.produto.custo * i.quantidade, 0);
   const podeEnviar = itens.length > 0 && ciente && !salvando;
 
   async function enviar() {
@@ -50,27 +97,39 @@ export default function NovoPedidoForm({ produtos }: { produtos: Produto[] }) {
       ciente,
     });
     setSalvando(false);
-
     if (!res.ok) {
       setErro(res.erro ?? "Erro ao registrar o pedido");
       return;
     }
-    setQtd({});
+    setSelecionados({});
     setObservacao("");
     setCiente(false);
     router.refresh();
   }
 
-  if (produtos.length === 0) {
-    return (
-      <p className="muted">
-        Nenhum produto disponível para o seu fornecedor ainda.
-      </p>
-    );
-  }
-
   return (
     <div>
+      <input
+        type="text"
+        placeholder="Buscar produto por nome ou código…"
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        style={{ marginBottom: 12 }}
+      />
+
+      <div className="between" style={{ marginBottom: 8 }}>
+        <span className="muted" style={{ fontSize: 13 }}>
+          {carregando
+            ? "Carregando…"
+            : `Página ${page + 1}${buscaAtiva ? ` · busca: "${buscaAtiva}"` : ""}`}
+        </span>
+        <span className="muted" style={{ fontSize: 13 }}>
+          {itens.length > 0 && (
+            <strong>{itens.length} item(ns) selecionado(s)</strong>
+          )}
+        </span>
+      </div>
+
       <table>
         <thead>
           <tr>
@@ -83,7 +142,7 @@ export default function NovoPedidoForm({ produtos }: { produtos: Produto[] }) {
         </thead>
         <tbody>
           {produtos.map((p) => {
-            const q = qtd[p.id] ?? 0;
+            const q = selecionados[p.id]?.quantidade ?? 0;
             return (
               <tr key={p.id}>
                 <td className="muted">{p.codigo_fornecedor}</td>
@@ -96,10 +155,7 @@ export default function NovoPedidoForm({ produtos }: { produtos: Produto[] }) {
                     value={q === 0 ? "" : q}
                     placeholder="0"
                     onChange={(e) =>
-                      setQtd((prev) => ({
-                        ...prev,
-                        [p.id]: Math.max(0, Number(e.target.value) || 0),
-                      }))
+                      setQtd(p, Math.max(0, Number(e.target.value) || 0))
                     }
                   />
                 </td>
@@ -109,8 +165,32 @@ export default function NovoPedidoForm({ produtos }: { produtos: Produto[] }) {
               </tr>
             );
           })}
+          {!carregando && produtos.length === 0 && (
+            <tr>
+              <td colSpan={5} className="muted">
+                Nenhum produto encontrado.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
+
+      <div className="row" style={{ marginTop: 12, justifyContent: "space-between" }}>
+        <button
+          className="secondary"
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          disabled={page === 0 || carregando}
+        >
+          ← Anterior
+        </button>
+        <button
+          className="secondary"
+          onClick={() => setPage((p) => p + 1)}
+          disabled={!temMais || carregando}
+        >
+          Próxima →
+        </button>
+      </div>
 
       <label htmlFor="obs">Observação</label>
       <textarea
