@@ -157,3 +157,67 @@ th {
   color: var(--ok);
   font-size: 12px;
 }
+
+.badge.warn {
+  background: rgba(214, 51, 108, 0.15);
+  color: #ff8787;
+}
+
+/* painéis de números do admin */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.stat {
+  background: #0f1218;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.stat .valor {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.stat .rotulo {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+/* linhas de pedido clicáveis */
+tr.clicavel {
+  cursor: pointer;
+}
+
+tr.clicavel:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.detalhe {
+  background: #0f1218;
+  border-top: 1px solid var(--border);
+}
+
+.detalhe-box {
+  padding: 12px 10px;
+}
+
+nav.topo {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  font-size: 14px;
+}
+
+nav.topo a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+nav.topo a:hover {
+  color: var(--text);
+}
