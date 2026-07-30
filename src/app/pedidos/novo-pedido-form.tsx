@@ -26,6 +26,7 @@ export default function NovoPedidoForm() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [temMais, setTemMais] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  const [erroBusca, setErroBusca] = useState<string | null>(null);
 
   // seleção do "carrinho" — sobrevive a busca/paginação
   const [selecionados, setSelecionados] = useState<
@@ -46,19 +47,40 @@ export default function NovoPedidoForm() {
   }, [busca]);
 
   useEffect(() => {
-    let cancelado = false; // descarta resposta de busca antiga (evita "piscar" resultado errado)
+    let cancelado = false; // descarta resposta de busca antiga (evita resultado piscando)
     setCarregando(true);
+    setErroBusca(null);
 
     (async () => {
-      const { data, error } = await supabase.rpc("buscar_produtos", {
-        p_termo: buscaAtiva,
-        p_offset: page * PAGE_SIZE,
-        p_limit: PAGE_SIZE + 1, // 1 a mais só para saber se existe próxima página
-      });
+      let q = supabase
+        .from("produtos")
+        .select("id, codigo_fornecedor, nome, custo")
+        .order("codigo_fornecedor");
+
+      // No PostgREST, o curinga do ilike dentro de or() é "*" (não "%").
+      // Vírgula e parênteses quebram a sintaxe do or(), então são removidos.
+      const termo = buscaAtiva.replace(/[,()*]/g, " ").trim();
+      if (termo) {
+        q = q.or(
+          [
+            `codigo_fornecedor.ilike.*${termo}*`,
+            `nome.ilike.*${termo}*`,
+            `codigo_produto_ref.ilike.*${termo}*`,
+          ].join(",")
+        );
+      }
+
+      const from = page * PAGE_SIZE;
+      const { data, error } = await q.range(from, from + PAGE_SIZE); // 1 a mais p/ saber se há próxima
       if (cancelado) return;
-      if (!error && data) {
-        setTemMais(data.length > PAGE_SIZE);
-        setProdutos(data.slice(0, PAGE_SIZE) as Produto[]);
+
+      if (error) {
+        setErroBusca(error.message);
+        setProdutos([]);
+        setTemMais(false);
+      } else {
+        setTemMais((data?.length ?? 0) > PAGE_SIZE);
+        setProdutos((data ?? []).slice(0, PAGE_SIZE) as Produto[]);
       }
       setCarregando(false);
     })();
@@ -127,6 +149,8 @@ export default function NovoPedidoForm() {
           )}
         </span>
       </div>
+
+      {erroBusca && <p className="error">Erro na busca: {erroBusca}</p>}
 
       <table>
         <thead>
