@@ -110,8 +110,10 @@ export default async function AdminPage() {
             <div className="rotulo">fornecedores</div>
           </div>
           <div className="stat">
-            <div className="valor">{num(resumo?.acessos_ativos ?? 0)}</div>
-            <div className="rotulo">acessos liberados</div>
+            <Link href="/admin/acessos">
+              <div className="valor">{num(resumo?.acessos_ativos ?? 0)}</div>
+              <div className="rotulo">acessos liberados →</div>
+            </Link>
           </div>
           <div className="stat">
             <Link href="/admin/documentos">

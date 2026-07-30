@@ -18,6 +18,7 @@ export type FornecedorImport = {
   documento: string | null; // valor cru do cgc_fabricante
   documento_tipo: DocumentoTipo;
   cnpj: string | null; // dígitos, só quando documento_tipo = CNPJ (compatibilidade/exibição)
+  email: string | null; // opcional: só quando o ERP passar a exportar a coluna
 };
 
 export type LinhaErro = { linha: number; motivo: string; dados: string };
@@ -47,6 +48,24 @@ function classificarDocumento(cgc: string): { tipo: DocumentoTipo; cnpj: string 
   if (d.length === 14) return { tipo: "CNPJ", cnpj: d };
   if (d.length === 11) return { tipo: "CPF", cnpj: null };
   return { tipo: "INVALIDO", cnpj: null };
+}
+
+// O ERP ainda não exporta e-mail; quando exportar, aceita os nomes de coluna
+// mais prováveis sem precisar mexer no código.
+const COLUNAS_EMAIL = [
+  "email",
+  "e_mail",
+  "email_fabricante",
+  "email_fornecedor",
+  "e_mail_fabricante",
+];
+
+function extrairEmail(r: Record<string, string>): string | null {
+  for (const c of COLUNAS_EMAIL) {
+    const v = String(r[c] ?? "").trim();
+    if (v && v.includes("@")) return v.toLowerCase();
+  }
+  return null;
 }
 
 // "0170076237 - CALCINHA PIETRA LISA M VERMELHO" -> { ref: "0170076237", nome: "CALCINHA ..." }
@@ -101,6 +120,7 @@ export function parseFornecedoresCsv(csv: string): ParseResult {
         documento: cgc.trim() || null,
         documento_tipo: tipo,
         cnpj,
+        email: extrairEmail(r),
       });
     }
 
