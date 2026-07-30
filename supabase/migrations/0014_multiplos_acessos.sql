@@ -14,7 +14,11 @@ alter table fornecedores add column if not exists emails text[];
 create index if not exists idx_fornecedor_usuarios_fornecedor
   on fornecedor_usuarios(fornecedor_id);
 
-create or replace view admin_acessos
+-- as colunas mudaram (era uma linha por acesso, agora é uma por fornecedor),
+-- então não dá para usar "create or replace": é preciso recriar a view.
+drop view if exists admin_acessos;
+
+create view admin_acessos
 with (security_invoker = true) as
 select
   f.id                as fornecedor_id,
