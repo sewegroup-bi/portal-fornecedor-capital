@@ -39,6 +39,22 @@ armazenado — nunca se confia em valor enviado pelo cliente (ver `criar_pedido`
 Row Level Security, não filtro na aplicação. Se a query esquecer um `where`, o RLS
 ainda protege. Nunca use `service_role` para atender requisição de fornecedor.
 
+### 1.5 A interface fala a língua do usuário, não a do desenvolvedor
+Quem usa o painel é a equipe da Capital/Sewe, não um desenvolvedor. Nomes de arquivo,
+pasta, tabela, view, bucket ou tecnologia **não aparecem na tela** — ficam neste
+documento e no README.
+
+| Na tela | Nos bastidores |
+|---|---|
+| "Catálogo e custos" | importação do `fornecedores.csv` do Drive |
+| "Dados dos pedidos" | view `saida_pedidos` |
+| "Baixar planilha" | `GET /api/admin/saida` |
+| "Gerar arquivo para o BI" | upload no Storage, bucket `saida` |
+| "atualizado / nada novo / falhou" | `importado` / `sem_alteracao` / `erro` |
+
+Mensagens de erro são exceção: podem trazer o detalhe técnico, porque servem para
+diagnóstico.
+
 ---
 
 ## 2. Fluxo de dados
@@ -70,7 +86,8 @@ desacoplada — quando o formato for definido, basta plugar o adaptador de entre
 | `fornecedor_usuarios` | vínculo login ↔ fornecedor (N logins por fornecedor) |
 | `admin_usuarios` | quem é administrador |
 | `pedidos` / `pedido_itens` | pedidos e itens. `custo_unitario` é **snapshot** |
-| `importacoes` | log de cada execução da importação |
+| `importacoes` | log de cada atualização do catálogo (entrada) |
+| `saidas` | log de cada geração/download do arquivo de pedidos (saída) |
 
 ### Views (saída e telas de admin)
 Todas com `security_invoker = true` para **respeitarem o RLS**:
@@ -140,8 +157,12 @@ o `search_path` resolve.
 
 ### 4.8 Limites de tempo/tamanho na Vercel
 Server Action aceita ~1 MB e request ~4,5 MB — por isso o CSV de 13 MB **nunca** passa
-pelo upload: o servidor busca direto no Drive. A importação manual é paginada
-(`limit`/`offset`) e a automática evita o problema pulando quando o arquivo não mudou.
+pelo upload: o servidor busca direto no Drive.
+
+Sobre **tempo**: o plano Hobby limita a função a 60 s, o que obrigava a importação a ser
+paginada pelo navegador (14 chamadas de 8 mil linhas — e 14 linhas no histórico). Com o
+plano **Pro** (`maxDuration = 300`) a importação virou **um único passe**: um botão e uma
+linha de log. Se algum dia o plano voltar para Hobby, isso volta a estourar.
 
 ---
 
@@ -158,6 +179,28 @@ pelo upload: o servidor busca direto no Drive. A importação manual é paginada
   Hoje o ERP ainda não exporta esse campo.
 
 Código: `src/lib/import/executarImportacao.ts` e `parseFornecedores.ts`.
+
+Toda execução (automática ou manual) grava uma linha em `importacoes`, com o resultado
+(`importado` / `sem_alteracao` / `erro`) e o checksum do arquivo lido. A rota manual usa
+`forcar: true` para atualizar mesmo sem mudança no arquivo.
+
+---
+
+## 5b. Saída
+
+Uma única função (`gerarSaidaCsv`) monta o arquivo a partir da view `saida_pedidos` e é
+usada pelos dois destinos já prontos:
+
+| Destino | Rota | O que faz |
+|---|---|---|
+| Download | `GET /api/admin/saida` | devolve o CSV para o navegador |
+| Arquivo para o BI | `POST /api/admin/saida` | grava no Supabase Storage (bucket `saida`) e devolve link assinado de 1 ano |
+
+Os dois registram uma linha em `saidas` (destino, nº de pedidos, nº de itens, resultado),
+exibida no painel como *Histórico de envios de dados*. O terceiro destino — entrega direta
+ao ERP por SFTP ou API — é só mais um adaptador consumindo a mesma função.
+
+O CSV leva **BOM UTF-8**, senão o Excel no Windows exibe os acentos errados.
 
 ---
 

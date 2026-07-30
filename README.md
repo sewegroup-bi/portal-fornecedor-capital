@@ -58,7 +58,7 @@ npm install
 ```
 
 1. **Banco:** no Supabase → **SQL Editor**, execute as migrations de
-   `supabase/migrations/` **em ordem numérica** (`0001` → `0014`).
+   `supabase/migrations/` **em ordem numérica** (`0001` → `0015`).
    Para dados de teste, execute também `supabase/seed.sql`.
 
 2. **Variáveis:** copie `.env.example` para `.env.local` e preencha
@@ -139,13 +139,19 @@ insert into admin_usuarios (user_id)
 values ('<UUID-DO-USUARIO>');
 ```
 
-### Importação do catálogo
-Roda **sozinha de hora em hora**. Se o arquivo do Drive não mudou, a execução é
-ignorada. Para forçar, use os botões em `/admin`.
+### Atualização do catálogo (entrada)
+Roda **sozinha de hora em hora**. Se o arquivo do Drive não mudou, a execução é ignorada
+(fica registrada como "nada novo"). Para forçar, use **Atualizar agora** em `/admin`
+(card *Catálogo e custos*) — leva alguns minutos e grava uma linha no histórico.
 
-### Saída de dados (BI / ERP)
-Em `/admin` → **Saída de dados**: baixar CSV ou gravar no Storage. O BI também pode
-ler direto a view `saida_pedidos`. O destino final depende da definição da Full Screen.
+### Dados dos pedidos (saída)
+Em `/admin` → card *Dados dos pedidos*:
+- **Baixar planilha** → CSV na hora (`GET /api/admin/saida`);
+- **Gerar arquivo para o BI** → grava no Supabase Storage (bucket `saida`) e devolve link
+  assinado de 1 ano.
+
+O BI também pode ler direto a view `saida_pedidos`. Todo envio fica no histórico
+(*Histórico de envios de dados*). O destino final depende da definição da Full Screen.
 
 ---
 
