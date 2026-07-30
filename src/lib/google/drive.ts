@@ -23,7 +23,7 @@ export async function findFileInFolder(folderId: string, fileName: string) {
   const drive = driveClient();
   const res = await drive.files.list({
     q: `'${folderId}' in parents and name = '${fileName}' and trashed = false`,
-    fields: "files(id, name, size, modifiedTime)",
+    fields: "files(id, name, size, modifiedTime, md5Checksum)",
     pageSize: 1,
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,

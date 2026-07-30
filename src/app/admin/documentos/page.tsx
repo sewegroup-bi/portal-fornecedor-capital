@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import ListaDocumentos from "./lista-documentos";
+import ExportarPendencias from "./exportar";
+
+const num = (n: number) => Number(n).toLocaleString("pt-BR");
 
 export default async function DocumentosPage() {
   const supabase = await createClient();
@@ -23,13 +25,15 @@ export default async function DocumentosPage() {
     .select("*")
     .order("produtos", { ascending: false });
 
+  const lista = data ?? [];
+
   return (
     <div className="container">
       <div className="between" style={{ marginBottom: 24 }}>
         <div>
-          <h1>Documentos a corrigir</h1>
+          <h1>Documentos a corrigir no ERP</h1>
           <p className="muted">
-            Fornecedores cujo CNPJ/CPF veio inválido ou vazio do arquivo de origem.
+            Fornecedores cujo CNPJ/CPF chegou inválido ou vazio no arquivo de origem.
           </p>
         </div>
         <nav className="topo">
@@ -38,12 +42,55 @@ export default async function DocumentosPage() {
       </div>
 
       <div className="card">
-        <p className="muted" style={{ marginTop: 0 }}>
-          Digite o documento correto e salve. O sistema valida CNPJ/CPF (inclusive
-          dígito verificador) e classifica automaticamente. Ordenado por quantidade de
-          produtos — os mais relevantes primeiro.
+        <p style={{ marginTop: 0 }}>
+          O cadastro é mantido no <strong>ERP (Full Screen)</strong> — este portal
+          apenas espelha o que chega pela importação. Por isso a correção deve ser
+          feita lá: assim que o ERP publicar o cadastro corrigido, a próxima
+          importação atualiza o portal automaticamente.
         </p>
-        <ListaDocumentos fornecedores={data ?? []} />
+        <div className="between" style={{ marginTop: 16 }}>
+          <span className="muted">
+            <strong>{num(lista.length)}</strong> fornecedor(es) pendente(s)
+          </span>
+          <ExportarPendencias fornecedores={lista} />
+        </div>
+      </div>
+
+      <div className="card">
+        {lista.length === 0 ? (
+          <p>✅ Nenhuma pendência — todos os fornecedores estão com CNPJ ou CPF válido.</p>
+        ) : (
+          <>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Ordenado por quantidade de produtos — os mais relevantes primeiro.
+            </p>
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: 80 }}>Código</th>
+                  <th>Fornecedor</th>
+                  <th style={{ width: 100, textAlign: "right" }}>Produtos</th>
+                  <th style={{ width: 200 }}>Documento recebido</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map((f) => (
+                  <tr key={f.id}>
+                    <td className="muted">{f.codigo_fabricante}</td>
+                    <td>{f.nome}</td>
+                    <td style={{ textAlign: "right" }}>{num(f.produtos)}</td>
+                    <td
+                      className="muted"
+                      style={{ fontFamily: "monospace", fontSize: 13 }}
+                    >
+                      {f.documento || "— vazio —"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
       </div>
     </div>
   );

@@ -58,9 +58,11 @@ export default async function AdminPage() {
         .limit(10),
       supabase
         .from("importacoes")
-        .select("executado_em, fonte, linhas_ok, linhas_erro, fornecedores_afetados")
+        .select(
+          "executado_em, automatica, resultado, linhas_ok, linhas_erro, fornecedores_afetados"
+        )
         .order("executado_em", { ascending: false })
-        .limit(5),
+        .limit(8),
     ]);
 
   return (
@@ -132,12 +134,14 @@ export default async function AdminPage() {
       <div className="card">
         <h1 style={{ fontSize: 18 }}>Importar produtos e custos (Google Drive)</h1>
         <p className="muted">
-          Lê o arquivo <code>fornecedores.csv</code> da pasta ENTRADA DE DADOS e atualiza
-          os custos. O custo importado fica travado — fornecedores não editam.
+          A importação roda <strong>automaticamente de hora em hora</strong>, lendo o{" "}
+          <code>fornecedores.csv</code> da pasta ENTRADA DE DADOS. Quando o arquivo não
+          mudou, a execução é ignorada. O cadastro é mantido no ERP — o portal apenas
+          espelha.
         </p>
         <p className="muted" style={{ fontSize: 13 }}>
-          Dica: rode primeiro <em>Importar amostra (500)</em> para validar, depois{" "}
-          <em>Importar tudo</em>.
+          Os botões abaixo servem para forçar uma atualização imediata, sem esperar o
+          próximo ciclo.
         </p>
         <ImportarButton />
       </div>
@@ -161,7 +165,8 @@ export default async function AdminPage() {
             <thead>
               <tr>
                 <th>Quando</th>
-                <th>Fonte</th>
+                <th>Origem</th>
+                <th>Resultado</th>
                 <th style={{ textAlign: "right" }}>OK</th>
                 <th style={{ textAlign: "right" }}>Erros</th>
                 <th style={{ textAlign: "right" }}>Fornecedores</th>
@@ -171,10 +176,21 @@ export default async function AdminPage() {
               {imports.map((imp, i) => (
                 <tr key={i}>
                   <td>{dataHora(imp.executado_em)}</td>
-                  <td className="muted">{imp.fonte}</td>
-                  <td style={{ textAlign: "right" }}>{num(imp.linhas_ok)}</td>
-                  <td style={{ textAlign: "right" }}>{num(imp.linhas_erro)}</td>
-                  <td style={{ textAlign: "right" }}>{num(imp.fornecedores_afetados)}</td>
+                  <td className="muted">{imp.automatica ? "automática" : "manual"}</td>
+                  <td>
+                    {imp.resultado === "erro" ? (
+                      <span className="badge warn">erro</span>
+                    ) : imp.resultado === "sem_alteracao" ? (
+                      <span className="muted">sem alteração</span>
+                    ) : (
+                      <span className="badge">importado</span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: "right" }}>{num(imp.linhas_ok ?? 0)}</td>
+                  <td style={{ textAlign: "right" }}>{num(imp.linhas_erro ?? 0)}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {num(imp.fornecedores_afetados ?? 0)}
+                  </td>
                 </tr>
               ))}
             </tbody>
