@@ -200,6 +200,14 @@ th {
   text-decoration: none;
 }
 
+/* e-mails sugeridos pelo cadastro do ERP */
+button.sugestao {
+  padding: 3px 8px;
+  font-size: 12px;
+  margin: 0 4px 4px 0;
+  font-weight: 400;
+}
+
 /* linhas de pedido clicáveis */
 tr.clicavel {
   cursor: pointer;

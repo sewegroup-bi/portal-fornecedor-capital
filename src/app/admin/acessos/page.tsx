@@ -27,13 +27,13 @@ export default async function AcessosPage({
 
   let query = supabase.from("admin_acessos").select("*");
   if (q?.trim()) query = query.ilike("nome", `%${q.trim()}%`);
-  if (filtro === "com") query = query.not("user_id", "is", null);
-  if (filtro === "sem") query = query.is("user_id", null);
+  if (filtro === "com") query = query.gt("qtd_acessos", 0);
+  if (filtro === "sem") query = query.eq("qtd_acessos", 0);
 
   const { data } = await query.order("produtos", { ascending: false }).limit(100);
   const lista = (data ?? []) as Acesso[];
 
-  const comAcesso = lista.filter((a) => a.user_id).length;
+  const comAcesso = lista.filter((a) => a.qtd_acessos > 0).length;
 
   return (
     <div className="container">
@@ -66,8 +66,10 @@ export default async function AcessosPage({
         </form>
         <p className="muted" style={{ fontSize: 13, marginTop: 12, marginBottom: 0 }}>
           Mostrando {num(lista.length)} fornecedor(es) — {num(comAcesso)} com acesso.
-          Ordenado por quantidade de produtos. O convite envia um e-mail para o
-          fornecedor criar a própria senha.
+          Ordenado por quantidade de produtos. Um fornecedor pode ter{" "}
+          <strong>vários logins</strong>; os e-mails que vierem do cadastro do ERP
+          aparecem como sugestão. O convite envia um e-mail para o fornecedor criar a
+          própria senha.
         </p>
       </div>
 

@@ -61,6 +61,24 @@ export async function POST(req: NextRequest) {
     mensagem = "Usuário já existia: vinculado e e-mail de acesso reenviado.";
   }
 
+  // um login pertence a um único fornecedor: avisa em vez de mover silenciosamente
+  const { data: vinculo } = await db
+    .from("fornecedor_usuarios")
+    .select("fornecedor_id, fornecedores(nome)")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (vinculo && vinculo.fornecedor_id !== fornecedor_id) {
+    const outro =
+      (vinculo.fornecedores as { nome?: string } | null)?.nome ?? "outro fornecedor";
+    return NextResponse.json(
+      {
+        erro: `Este e-mail já tem acesso vinculado a ${outro}. Use um e-mail diferente para este fornecedor.`,
+      },
+      { status: 409 }
+    );
+  }
+
   const { error } = await db.from("fornecedor_usuarios").upsert(
     {
       user_id: userId,

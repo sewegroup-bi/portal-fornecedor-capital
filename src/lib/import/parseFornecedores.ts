@@ -18,7 +18,8 @@ export type FornecedorImport = {
   documento: string | null; // valor cru do cgc_fabricante
   documento_tipo: DocumentoTipo;
   cnpj: string | null; // dígitos, só quando documento_tipo = CNPJ (compatibilidade/exibição)
-  email: string | null; // opcional: só quando o ERP passar a exportar a coluna
+  email: string | null; // primeiro e-mail encontrado (compatibilidade/exibição)
+  emails: string[]; // todos os e-mails de contato vindos do ERP
 };
 
 export type LinhaErro = { linha: number; motivo: string; dados: string };
@@ -60,12 +61,18 @@ const COLUNAS_EMAIL = [
   "e_mail_fabricante",
 ];
 
-function extrairEmail(r: Record<string, string>): string | null {
+// Uma célula pode trazer mais de um e-mail (separados por ; , ou espaço).
+function extrairEmails(r: Record<string, string>): string[] {
+  const encontrados: string[] = [];
   for (const c of COLUNAS_EMAIL) {
     const v = String(r[c] ?? "").trim();
-    if (v && v.includes("@")) return v.toLowerCase();
+    if (!v) continue;
+    for (const parte of v.split(/[;,\s]+/)) {
+      const e = parte.trim().toLowerCase();
+      if (e.includes("@") && !encontrados.includes(e)) encontrados.push(e);
+    }
   }
-  return null;
+  return encontrados;
 }
 
 // "0170076237 - CALCINHA PIETRA LISA M VERMELHO" -> { ref: "0170076237", nome: "CALCINHA ..." }
@@ -120,9 +127,17 @@ export function parseFornecedoresCsv(csv: string): ParseResult {
         documento: cgc.trim() || null,
         documento_tipo: tipo,
         cnpj,
-        email: extrairEmail(r),
+        email: null,
+        emails: [],
       });
     }
+
+    // o mesmo fornecedor aparece em muitas linhas: acumula os e-mails distintos
+    const f = fornecedores.get(codigoFab)!;
+    for (const e of extrairEmails(r)) {
+      if (!f.emails.includes(e)) f.emails.push(e);
+    }
+    if (!f.email && f.emails.length > 0) f.email = f.emails[0];
 
     const { ref, nome } = splitProduto(r["produto"]);
     produtos.push({
