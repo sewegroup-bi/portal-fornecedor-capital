@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { validarDocumento, formatarDocumento } from "@/lib/documento";
 
 export const runtime = "nodejs";
@@ -38,15 +37,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erro: v.motivo }, { status: 400 });
   }
 
-  const db = createAdminClient();
-  const { error } = await db
-    .from("fornecedores")
-    .update({
-      documento: formatarDocumento(v.digitos),
-      documento_tipo: v.tipo,
-      cnpj: v.tipo === "CNPJ" ? v.digitos : null,
-    })
-    .eq("id", fornecedor_id);
+  // corrigir_documento é a única porta que altera o documento: valida admin no
+  // banco e marca como corrigido à mão (a importação não sobrescreve mais).
+  const { error } = await supabase.rpc("corrigir_documento", {
+    p_fornecedor_id: fornecedor_id,
+    p_documento: formatarDocumento(v.digitos),
+    p_tipo: v.tipo,
+    p_cnpj: v.tipo === "CNPJ" ? v.digitos : null,
+  });
 
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
 
