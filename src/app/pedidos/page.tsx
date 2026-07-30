@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "../login/actions";
 import NovoPedidoForm from "./novo-pedido-form";
-import PedidosLista from "./pedidos-lista";
+import PedidosExpansivel from "@/components/pedidos-expansivel";
 
 export default async function PedidosPage() {
   const supabase = await createClient();
@@ -50,7 +50,7 @@ export default async function PedidosPage() {
 
       <div className="card">
         <h1 style={{ fontSize: 18 }}>Pedidos registrados</h1>
-        <PedidosLista pedidos={pedidos ?? []} />
+        <PedidosExpansivel pedidos={pedidos ?? []} />
       </div>
     </div>
   );

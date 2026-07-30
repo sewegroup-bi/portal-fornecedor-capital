@@ -3,9 +3,23 @@ import { createClient } from "@/lib/supabase/server";
 import { logout } from "../login/actions";
 import ImportarButton from "./importar-button";
 import GerarSaida from "./gerar-saida";
+import PedidosExpansivel from "@/components/pedidos-expansivel";
 
 const brl = (n: number) =>
   Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+// valores altos viram "R$ 1,2 mi" para não estourar o painel (o valor cheio fica no title)
+const brlPainel = (n: number) => {
+  const v = Number(n);
+  if (v >= 1_000_000)
+    return v.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      notation: "compact",
+      maximumFractionDigits: 1,
+    });
+  return brl(v);
+};
 
 const num = (n: number) => Number(n).toLocaleString("pt-BR");
 
@@ -80,7 +94,9 @@ export default async function AdminPage() {
             <div className="rotulo">nos últimos 7 dias</div>
           </div>
           <div className="stat">
-            <div className="valor">{brl(resumo?.valor_total ?? 0)}</div>
+            <div className="valor" title={brl(resumo?.valor_total ?? 0)}>
+              {brlPainel(resumo?.valor_total ?? 0)}
+            </div>
             <div className="rotulo">valor total pedido</div>
           </div>
           <div className="stat">
@@ -96,10 +112,12 @@ export default async function AdminPage() {
             <div className="rotulo">acessos liberados</div>
           </div>
           <div className="stat">
-            <div className="valor" style={{ color: "#ff8787" }}>
-              {num(resumo?.documentos_a_corrigir ?? 0)}
-            </div>
-            <div className="rotulo">documentos a corrigir</div>
+            <Link href="/admin/documentos">
+              <div className="valor" style={{ color: "#ff8787" }}>
+                {num(resumo?.documentos_a_corrigir ?? 0)}
+              </div>
+              <div className="rotulo">documentos a corrigir →</div>
+            </Link>
           </div>
         </div>
       </div>
@@ -107,41 +125,7 @@ export default async function AdminPage() {
       {/* ---------- últimos pedidos ---------- */}
       <div className="card">
         <h1 style={{ fontSize: 18 }}>Últimos pedidos</h1>
-        {ultimosPedidos && ultimosPedidos.length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Fornecedor</th>
-                <th style={{ textAlign: "right" }}>Itens</th>
-                <th>Ciência</th>
-                <th style={{ textAlign: "right" }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ultimosPedidos.map((p) => (
-                <tr key={p.id}>
-                  <td>{dataHora(p.data_registro)}</td>
-                  <td>
-                    <span className="muted">{p.fornecedor_codigo} · </span>
-                    {p.fornecedor_nome}
-                  </td>
-                  <td style={{ textAlign: "right" }}>{p.itens}</td>
-                  <td>
-                    {p.ciente_valores ? (
-                      <span className="badge">ciente</span>
-                    ) : (
-                      <span className="badge warn">sem ciência</span>
-                    )}
-                  </td>
-                  <td style={{ textAlign: "right" }}>{brl(p.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="muted">Nenhum pedido registrado ainda.</p>
-        )}
+        <PedidosExpansivel pedidos={ultimosPedidos ?? []} mostrarFornecedor />
       </div>
 
       {/* ---------- entrada ---------- */}

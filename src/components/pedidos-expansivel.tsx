@@ -3,12 +3,15 @@
 import { Fragment, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Pedido = {
+export type PedidoLinha = {
   id: string;
   data_registro: string;
   observacao: string | null;
   total: number;
   ciente_valores: boolean;
+  fornecedor_codigo?: string | null;
+  fornecedor_nome?: string | null;
+  itens?: number;
 };
 
 type Item = {
@@ -30,7 +33,13 @@ const dataHora = (iso: string) =>
     minute: "2-digit",
   });
 
-export default function PedidosLista({ pedidos }: { pedidos: Pedido[] }) {
+export default function PedidosExpansivel({
+  pedidos,
+  mostrarFornecedor = false,
+}: {
+  pedidos: PedidoLinha[];
+  mostrarFornecedor?: boolean;
+}) {
   const supabase = useMemo(() => createClient(), []);
   const [aberto, setAberto] = useState<string | null>(null);
   const [itens, setItens] = useState<Record<string, Item[]>>({});
@@ -57,6 +66,8 @@ export default function PedidosLista({ pedidos }: { pedidos: Pedido[] }) {
     return <p className="muted">Nenhum pedido registrado ainda.</p>;
   }
 
+  const colunas = mostrarFornecedor ? 5 : 4;
+
   return (
     <>
       <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
@@ -66,7 +77,8 @@ export default function PedidosLista({ pedidos }: { pedidos: Pedido[] }) {
         <thead>
           <tr>
             <th>Data</th>
-            <th>Observação</th>
+            {mostrarFornecedor && <th>Fornecedor</th>}
+            <th>{mostrarFornecedor ? "Itens" : "Observação"}</th>
             <th>Ciência</th>
             <th style={{ textAlign: "right" }}>Total</th>
           </tr>
@@ -75,20 +87,41 @@ export default function PedidosLista({ pedidos }: { pedidos: Pedido[] }) {
           {pedidos.map((p) => (
             <Fragment key={p.id}>
               <tr className="clicavel" onClick={() => alternar(p.id)}>
-                <td>
+                <td style={{ whiteSpace: "nowrap" }}>
                   {aberto === p.id ? "▾" : "▸"} {dataHora(p.data_registro)}
                 </td>
-                <td className="muted">{p.observacao || "—"}</td>
-                <td>
-                  {p.ciente_valores ? <span className="badge">ciente</span> : "—"}
+                {mostrarFornecedor && (
+                  <td>
+                    {p.fornecedor_codigo && (
+                      <span className="muted">{p.fornecedor_codigo} · </span>
+                    )}
+                    {p.fornecedor_nome}
+                  </td>
+                )}
+                <td className="muted">
+                  {mostrarFornecedor ? p.itens : p.observacao || "—"}
                 </td>
-                <td style={{ textAlign: "right" }}>{brl(p.total)}</td>
+                <td>
+                  {p.ciente_valores ? (
+                    <span className="badge">ciente</span>
+                  ) : (
+                    <span className="badge warn">sem ciência</span>
+                  )}
+                </td>
+                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                  {brl(p.total)}
+                </td>
               </tr>
 
               {aberto === p.id && (
                 <tr className="detalhe">
-                  <td colSpan={4}>
+                  <td colSpan={colunas}>
                     <div className="detalhe-box">
+                      {p.observacao && mostrarFornecedor && (
+                        <p className="muted" style={{ marginTop: 0 }}>
+                          Observação: {p.observacao}
+                        </p>
+                      )}
                       {carregando === p.id ? (
                         <span className="muted">Carregando itens…</span>
                       ) : (
@@ -113,9 +146,7 @@ export default function PedidosLista({ pedidos }: { pedidos: Pedido[] }) {
                                 <td style={{ textAlign: "right" }}>
                                   {brl(it.custo_unitario)}
                                 </td>
-                                <td style={{ textAlign: "right" }}>
-                                  {brl(it.subtotal)}
-                                </td>
+                                <td style={{ textAlign: "right" }}>{brl(it.subtotal)}</td>
                               </tr>
                             ))}
                           </tbody>
