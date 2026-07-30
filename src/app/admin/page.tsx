@@ -48,7 +48,7 @@ export default async function AdminPage() {
     );
   }
 
-  const [{ data: resumo }, { data: ultimosPedidos }, { data: imports }] =
+  const [{ data: resumo }, { data: ultimosPedidos }, { data: imports }, { data: saidas }] =
     await Promise.all([
       supabase.from("admin_resumo").select("*").maybeSingle(),
       supabase
@@ -58,9 +58,12 @@ export default async function AdminPage() {
         .limit(10),
       supabase
         .from("importacoes")
-        .select(
-          "executado_em, automatica, resultado, linhas_ok, linhas_erro, fornecedores_afetados"
-        )
+        .select("executado_em, automatica, resultado, linhas_ok, fornecedores_afetados")
+        .order("executado_em", { ascending: false })
+        .limit(8),
+      supabase
+        .from("saidas")
+        .select("executado_em, destino, linhas, pedidos, resultado")
         .order("executado_em", { ascending: false })
         .limit(8),
     ]);
@@ -134,34 +137,34 @@ export default async function AdminPage() {
 
       {/* ---------- entrada ---------- */}
       <div className="card">
-        <h1 style={{ fontSize: 18 }}>Importar produtos e custos (Google Drive)</h1>
+        <h1 style={{ fontSize: 18 }}>Catálogo e custos</h1>
         <p className="muted">
-          A importação roda <strong>automaticamente de hora em hora</strong>, lendo o{" "}
-          <code>fornecedores.csv</code> da pasta ENTRADA DE DADOS. Quando o arquivo não
-          mudou, a execução é ignorada. O cadastro é mantido no ERP — o portal apenas
-          espelha.
+          Os produtos e os custos são atualizados <strong>automaticamente a cada hora</strong>,
+          a partir do cadastro do ERP. O portal apenas espelha essa informação — para
+          alterar um cadastro, a mudança deve ser feita no ERP.
         </p>
         <p className="muted" style={{ fontSize: 13 }}>
-          Os botões abaixo servem para forçar uma atualização imediata, sem esperar o
-          próximo ciclo.
+          Use o botão abaixo apenas se precisar da atualização imediata, sem esperar a
+          próxima hora.
         </p>
         <ImportarButton />
       </div>
 
       {/* ---------- saída ---------- */}
       <div className="card">
-        <h1 style={{ fontSize: 18 }}>Saída de dados (BI)</h1>
+        <h1 style={{ fontSize: 18 }}>Dados dos pedidos</h1>
         <p className="muted">
-          Dataset pronto para o BI (grão de item de pedido). Baixe em CSV, gere o
-          arquivo no Storage (para o Full Screen/BI puxar depois) ou conecte o Qlik
-          direto na view <code>saida_pedidos</code>.
+          Arquivo com os pedidos registrados pelos fornecedores, para uso no BI.
+          <strong> Baixar planilha</strong> traz uma cópia para você conferir;{" "}
+          <strong>Gerar arquivo para o BI</strong> disponibiliza a versão mais recente
+          para o BI buscar.
         </p>
         <GerarSaida />
       </div>
 
-      {/* ---------- histórico ---------- */}
+      {/* ---------- histórico do catálogo ---------- */}
       <div className="card">
-        <h1 style={{ fontSize: 18 }}>Histórico de importações</h1>
+        <h1 style={{ fontSize: 18 }}>Histórico de atualizações do catálogo</h1>
         {imports && imports.length > 0 ? (
           <table>
             <thead>
@@ -169,8 +172,7 @@ export default async function AdminPage() {
                 <th>Quando</th>
                 <th>Origem</th>
                 <th>Resultado</th>
-                <th style={{ textAlign: "right" }}>OK</th>
-                <th style={{ textAlign: "right" }}>Erros</th>
+                <th style={{ textAlign: "right" }}>Produtos</th>
                 <th style={{ textAlign: "right" }}>Fornecedores</th>
               </tr>
             </thead>
@@ -178,18 +180,19 @@ export default async function AdminPage() {
               {imports.map((imp, i) => (
                 <tr key={i}>
                   <td>{dataHora(imp.executado_em)}</td>
-                  <td className="muted">{imp.automatica ? "automática" : "manual"}</td>
+                  <td className="muted">
+                    {imp.automatica ? "automática" : "manual"}
+                  </td>
                   <td>
                     {imp.resultado === "erro" ? (
-                      <span className="badge warn">erro</span>
+                      <span className="badge warn">falhou</span>
                     ) : imp.resultado === "sem_alteracao" ? (
-                      <span className="muted">sem alteração</span>
+                      <span className="muted">nada novo</span>
                     ) : (
-                      <span className="badge">importado</span>
+                      <span className="badge">atualizado</span>
                     )}
                   </td>
                   <td style={{ textAlign: "right" }}>{num(imp.linhas_ok ?? 0)}</td>
-                  <td style={{ textAlign: "right" }}>{num(imp.linhas_erro ?? 0)}</td>
                   <td style={{ textAlign: "right" }}>
                     {num(imp.fornecedores_afetados ?? 0)}
                   </td>
@@ -198,7 +201,46 @@ export default async function AdminPage() {
             </tbody>
           </table>
         ) : (
-          <p className="muted">Nenhuma importação ainda.</p>
+          <p className="muted">Nenhuma atualização ainda.</p>
+        )}
+      </div>
+
+      {/* ---------- histórico das saídas ---------- */}
+      <div className="card">
+        <h1 style={{ fontSize: 18 }}>Histórico de envios de dados</h1>
+        {saidas && saidas.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Quando</th>
+                <th>Tipo</th>
+                <th>Resultado</th>
+                <th style={{ textAlign: "right" }}>Pedidos</th>
+                <th style={{ textAlign: "right" }}>Itens</th>
+              </tr>
+            </thead>
+            <tbody>
+              {saidas.map((s, i) => (
+                <tr key={i}>
+                  <td>{dataHora(s.executado_em)}</td>
+                  <td className="muted">
+                    {s.destino === "arquivo" ? "arquivo para o BI" : "planilha baixada"}
+                  </td>
+                  <td>
+                    {s.resultado === "erro" ? (
+                      <span className="badge warn">falhou</span>
+                    ) : (
+                      <span className="badge">concluído</span>
+                    )}
+                  </td>
+                  <td style={{ textAlign: "right" }}>{num(s.pedidos ?? 0)}</td>
+                  <td style={{ textAlign: "right" }}>{num(s.linhas ?? 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="muted">Nenhum envio ainda.</p>
         )}
       </div>
     </div>

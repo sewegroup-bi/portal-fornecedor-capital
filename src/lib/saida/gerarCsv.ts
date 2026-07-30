@@ -28,15 +28,28 @@ function csvCell(v: unknown): string {
 }
 
 // Gera o CSV da saída (view saida_pedidos), com BOM UTF-8 para o Excel.
-export async function gerarSaidaCsv(db: SupabaseClient): Promise<string> {
+// Devolve também as contagens, usadas no histórico de saídas.
+export async function gerarSaidaCsv(
+  db: SupabaseClient
+): Promise<{ csv: string; linhas: number; pedidos: number }> {
   const { data, error } = await db
     .from("saida_pedidos")
     .select("*")
     .order("data_registro", { ascending: true });
   if (error) throw new Error(error.message);
 
-  const linhas = (data ?? []).map((r) =>
+  const registros = data ?? [];
+  const linhas = registros.map((r) =>
     COLUNAS.map((c) => csvCell((r as Record<string, unknown>)[c])).join(",")
   );
-  return "﻿" + [COLUNAS.join(","), ...linhas].join("\n");
+
+  const pedidos = new Set(
+    registros.map((r) => (r as Record<string, unknown>).pedido_id)
+  ).size;
+
+  return {
+    csv: "﻿" + [COLUNAS.join(","), ...linhas].join("\n"),
+    linhas: registros.length,
+    pedidos,
+  };
 }

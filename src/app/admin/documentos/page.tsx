@@ -43,10 +43,9 @@ export default async function DocumentosPage() {
 
       <div className="card">
         <p style={{ marginTop: 0 }}>
-          O cadastro é mantido no <strong>ERP (Full Screen)</strong> — este portal
-          apenas espelha o que chega pela importação. Por isso a correção deve ser
-          feita lá: assim que o ERP publicar o cadastro corrigido, a próxima
-          importação atualiza o portal automaticamente.
+          O cadastro é mantido no <strong>ERP</strong> — este portal apenas espelha essa
+          informação. Por isso a correção deve ser feita lá: assim que o cadastro for
+          corrigido no ERP, o portal se atualiza sozinho na próxima hora.
         </p>
         <div className="between" style={{ marginTop: 16 }}>
           <span className="muted">

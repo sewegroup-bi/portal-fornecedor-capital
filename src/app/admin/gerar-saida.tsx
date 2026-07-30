@@ -1,10 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-type Res = { ok?: boolean; erro?: string; arquivo?: string; url?: string };
+type Res = {
+  ok?: boolean;
+  erro?: string;
+  linhas?: number;
+  pedidos?: number;
+  url?: string;
+};
+
+const num = (n: number) => Number(n).toLocaleString("pt-BR");
 
 export default function GerarSaida() {
+  const router = useRouter();
   const [carregando, setCarregando] = useState(false);
   const [res, setRes] = useState<Res | null>(null);
 
@@ -13,9 +23,11 @@ export default function GerarSaida() {
     setRes(null);
     try {
       const r = await fetch("/api/admin/saida", { method: "POST" });
-      setRes(await r.json());
+      const data = await r.json();
+      setRes(data);
+      if (data.ok) router.refresh();
     } catch (e) {
-      setRes({ erro: e instanceof Error ? e.message : "Falha" });
+      setRes({ erro: e instanceof Error ? e.message : "Falha ao gerar" });
     } finally {
       setCarregando(false);
     }
@@ -25,20 +37,22 @@ export default function GerarSaida() {
     <div style={{ marginTop: 12 }}>
       <div className="row">
         <a href="/api/admin/saida">
-          <button className="secondary">Baixar saída (CSV)</button>
+          <button className="secondary">Baixar planilha</button>
         </a>
         <button onClick={gerar} disabled={carregando}>
-          {carregando ? "Gerando…" : "Gerar arquivo de saída"}
+          {carregando ? "Gerando…" : "Gerar arquivo para o BI"}
         </button>
       </div>
+
       {res && (
         <p style={{ marginTop: 12 }} className={res.ok ? undefined : "error"}>
           {res.ok ? (
             <>
-              ✅ Arquivo <strong>{res.arquivo}</strong> gerado no Storage.{" "}
+              ✅ Arquivo gerado com <strong>{num(res.pedidos ?? 0)}</strong> pedido(s) e{" "}
+              <strong>{num(res.linhas ?? 0)}</strong> item(ns).{" "}
               {res.url && (
                 <a href={res.url} target="_blank" rel="noopener noreferrer">
-                  abrir / link do arquivo
+                  abrir arquivo
                 </a>
               )}
             </>

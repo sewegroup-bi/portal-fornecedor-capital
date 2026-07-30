@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { gerarSaidaCsv } from "@/lib/saida/gerarCsv";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const FILE_NAME = "saida_pedidos.csv";
 const BUCKET = "saida";
@@ -19,13 +20,24 @@ async function exigirAdmin() {
   return { user };
 }
 
-// GET: download direto do CSV
+// GET: baixa o arquivo
 export async function GET() {
   const auth = await exigirAdmin();
   if ("erro" in auth) return NextResponse.json({ erro: auth.erro }, { status: auth.status });
 
+  const db = createAdminClient();
   try {
-    const csv = await gerarSaidaCsv(createAdminClient());
+    const { csv, linhas, pedidos } = await gerarSaidaCsv(db);
+
+    await db.from("saidas").insert({
+      executado_por: auth.user.id,
+      destino: "download",
+      linhas,
+      pedidos,
+      arquivo: FILE_NAME,
+      resultado: "ok",
+    });
+
     return new NextResponse(csv, {
       status: 200,
       headers: {
@@ -35,18 +47,24 @@ export async function GET() {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erro desconhecido";
+    await db.from("saidas").insert({
+      executado_por: auth.user.id,
+      destino: "download",
+      resultado: "erro",
+      detalhe: { erro: msg },
+    });
     return NextResponse.json({ erro: msg }, { status: 500 });
   }
 }
 
-// POST: gera o CSV e grava no Storage (bucket "saida"), retornando URL assinada.
+// POST: gera o arquivo para o BI buscar (guardado no Storage)
 export async function POST() {
   const auth = await exigirAdmin();
   if ("erro" in auth) return NextResponse.json({ erro: auth.erro }, { status: auth.status });
 
+  const db = createAdminClient();
   try {
-    const db = createAdminClient();
-    const csv = await gerarSaidaCsv(db);
+    const { csv, linhas, pedidos } = await gerarSaidaCsv(db);
 
     const { error: upErr } = await db.storage
       .from(BUCKET)
@@ -56,15 +74,36 @@ export async function POST() {
       });
     if (upErr) throw new Error(upErr.message);
 
-    // URL assinada de longa duração (1 ano) para o consumidor puxar
+    // link de longa duração para o consumidor puxar o arquivo
     const { data: signed, error: signErr } = await db.storage
       .from(BUCKET)
       .createSignedUrl(FILE_NAME, 60 * 60 * 24 * 365);
     if (signErr) throw new Error(signErr.message);
 
-    return NextResponse.json({ ok: true, arquivo: FILE_NAME, url: signed?.signedUrl });
+    await db.from("saidas").insert({
+      executado_por: auth.user.id,
+      destino: "arquivo",
+      linhas,
+      pedidos,
+      arquivo: FILE_NAME,
+      resultado: "ok",
+    });
+
+    return NextResponse.json({
+      ok: true,
+      arquivo: FILE_NAME,
+      linhas,
+      pedidos,
+      url: signed?.signedUrl,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erro desconhecido";
+    await db.from("saidas").insert({
+      executado_por: auth.user.id,
+      destino: "arquivo",
+      resultado: "erro",
+      detalhe: { erro: msg },
+    });
     return NextResponse.json({ erro: msg }, { status: 500 });
   }
 }
