@@ -57,18 +57,10 @@ export default function NovoPedidoForm() {
         .select("id, codigo_fornecedor, nome, custo")
         .order("codigo_fornecedor");
 
-      // No PostgREST, o curinga do ilike dentro de or() é "*" (não "%").
-      // Vírgula e parênteses quebram a sintaxe do or(), então são removidos.
-      const termo = buscaAtiva.replace(/[,()*]/g, " ").trim();
-      if (termo) {
-        q = q.or(
-          [
-            `codigo_fornecedor.ilike.*${termo}*`,
-            `nome.ilike.*${termo}*`,
-            `codigo_produto_ref.ilike.*${termo}*`,
-          ].join(",")
-        );
-      }
+      // "busca" é uma coluna gerada (código + ref + nome) com índice trigram:
+      // um único ilike aproveita o índice, em vez de um OR em 3 colunas.
+      const termo = buscaAtiva.replace(/[%_]/g, " ").trim();
+      if (termo) q = q.ilike("busca", `%${termo}%`);
 
       const from = page * PAGE_SIZE;
       const { data, error } = await q.range(from, from + PAGE_SIZE); // 1 a mais p/ saber se há próxima
